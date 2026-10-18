@@ -141,6 +141,11 @@ func newMySQLDatastore(ctx context.Context, uri string, replicaIndex int, option
 		return nil, errors.New("error in NewMySQLDatastore: connection URI for MySQL datastore must include `parseTime=true` as a query parameter; see " + sharederrors.MySQLParseErrorLink + " for more details")
 	}
 
+	tlsFiles, err := mysqlCommon.MaybeConfigureTLS(mysqlConfig, config.tlsOptions)
+	if err != nil {
+		return nil, fmt.Errorf(errUnableToInstantiate, err)
+	}
+
 	// Setup the credentials provider
 	var credentialsProvider datastore.CredentialsProvider
 	if config.credentialsProviderName != "" {
@@ -159,7 +164,7 @@ func newMySQLDatastore(ctx context.Context, uri string, replicaIndex int, option
 	mysqlConfig.Logger = debugLogger{}
 
 	// Call NewConnector with the existing parsed configuration to preserve the BeforeConnect added by the CredentialsProvider
-	connector, err := mysql.NewConnector(mysqlConfig)
+	connector, err := mysqlCommon.NewConnector(mysqlConfig, tlsFiles)
 	if err != nil {
 		return nil, common.RedactAndLogSensitiveConnString(ctx, "NewMySQLDatastore: failed to create connector", err, uri)
 	}

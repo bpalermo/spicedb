@@ -175,6 +175,10 @@ func RegisterDatastoreFlagsWithPrefix(flagSet *pflag.FlagSet, prefix string, opt
 	}
 	flagSet.StringVar(&opts.SpannerDatastoreMetricsOption, flagName("datastore-spanner-metrics"), "otel", `configure the metrics that are emitted by the Spanner datastore ("none", "native", "otel")`)
 	flagSet.StringVar(&opts.TablePrefix, flagName("datastore-mysql-table-prefix"), "", "prefix to add to the name of all SpiceDB database tables")
+	flagSet.StringVar(&opts.TLSCAPath, flagName("datastore-tls-ca-path"), "", "path to a PEM bundle of the certificate authorities that verify the datastore's server certificate, reloaded when it changes; defaults to the system roots (MySQL driver only)")
+	flagSet.StringVar(&opts.TLSCertPath, flagName("datastore-tls-cert-path"), "", "path to a PEM client certificate presented to the datastore, reloaded when it changes; requires --datastore-tls-key-path (MySQL driver only)")
+	flagSet.StringVar(&opts.TLSKeyPath, flagName("datastore-tls-key-path"), "", "path to the PEM private key of --datastore-tls-cert-path, reloaded when it changes (MySQL driver only)")
+	flagSet.StringVar(&opts.TLSServerName, flagName("datastore-tls-server-name"), "", "name the datastore's server certificate is verified against; defaults to the host of the connection URI (MySQL driver only)")
 	flagSet.StringVar(&opts.MigrationPhase, flagName("datastore-migration-phase"), "", "datastore-specific flag that should be used to signal to a datastore which phase of a multi-step migration it is in")
 	flagSet.StringArrayVar(&opts.AllowedMigrations, flagName("datastore-allowed-migrations"), []string{}, "migration levels that will not fail the health check (in addition to the current head migration)")
 	flagSet.Uint16Var(&opts.WatchBufferLength, flagName("datastore-watch-buffer-length"), 1024, "how large the watch buffer should be before blocking")
@@ -216,6 +220,18 @@ func RegisterDatastoreFlagsWithPrefix(flagSet *pflag.FlagSet, prefix string, opt
 	return nil
 }
 
+// ValidateDatastoreTLSEngine returns an error when TLS flags are set for an
+// engine that does not support them, so that they are never silently ignored.
+func ValidateDatastoreTLSEngine(engine string, caPath, certPath, keyPath, serverName string) error {
+	if engine == MySQLEngine {
+		return nil
+	}
+	if caPath == "" && certPath == "" && keyPath == "" && serverName == "" {
+		return nil
+	}
+	return fmt.Errorf("the --datastore-tls-* flags are only supported by the %s datastore engine, not %s; for Postgres and CockroachDB set sslrootcert, sslcert and sslkey in the connection URI", MySQLEngine, engine)
+}
+
 // NewDatastore initializes a datastore given the options
 func NewDatastore(ctx context.Context, options ...ConfigOption) (datastore.Datastore, error) {
 	opts := DefaultDatastoreConfig()
@@ -232,6 +248,10 @@ func NewDatastore(ctx context.Context, options ...ConfigOption) (datastore.Datas
 	if opts.LegacyFuzzing >= 0 {
 		log.Ctx(ctx).Warn().Stringer("period", opts.LegacyFuzzing).Msg("deprecated datastore-revision-fuzzing-duration flag specified")
 		opts.RevisionQuantization = opts.LegacyFuzzing
+	}
+
+	if err := ValidateDatastoreTLSEngine(opts.Engine, opts.TLSCAPath, opts.TLSCertPath, opts.TLSKeyPath, opts.TLSServerName); err != nil {
+		return nil, err
 	}
 
 	dsBuilder, ok := BuilderForEngine[opts.Engine]

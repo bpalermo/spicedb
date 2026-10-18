@@ -25,6 +25,10 @@ type Config struct {
 	SpannerCredentialsFile  string
 	SpannerEmulatorHost     string
 	MySQLTablePrefix        string
+	TLSCAPath               string
+	TLSCertPath             string
+	TLSKeyPath              string
+	TLSServerName           string
 	Timeout                 time.Duration
 	BatchSize               uint64
 

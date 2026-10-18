@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/authzed/spicedb/internal/datastore/common"
+	mysqlCommon "github.com/authzed/spicedb/internal/datastore/mysql/common"
 	log "github.com/authzed/spicedb/internal/logging"
 )
 
@@ -54,6 +55,7 @@ type mysqlOptions struct {
 	allowedMigrations            []string
 	columnOptimizationOption     common.ColumnOptimizationOption
 	watchDisabled                bool
+	tlsOptions                   mysqlCommon.TLSOptions
 }
 
 // Option provides the facility to configure how clients within the
@@ -297,5 +299,17 @@ func WithColumnOptimization(isEnabled bool) Option {
 func WithWatchDisabled(isDisabled bool) Option {
 	return func(mo *mysqlOptions) {
 		mo.watchDisabled = isDisabled
+	}
+}
+
+// WithTLS configures the connection to MySQL to use TLS with the given CA
+// bundle, client certificate and server name, reloading the files when they
+// change. The connection URI must not set the tls parameter to anything but
+// true.
+//
+// TLS is configured by the connection URI alone by default.
+func WithTLS(tlsOptions mysqlCommon.TLSOptions) Option {
+	return func(mo *mysqlOptions) {
+		mo.tlsOptions = tlsOptions
 	}
 }

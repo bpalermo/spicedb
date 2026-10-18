@@ -181,3 +181,14 @@ func TestOptimizedRevisionTimeoutReachesSQLDatastore(t *testing.T) {
 		require.True(t, fake.sawDeadline.Load(), "the optimized-revision proxy's deadline must reach the concrete datastore")
 	})
 }
+
+func TestTLSFlagsRejectedForOtherEngines(t *testing.T) {
+	require.NoError(t, ValidateDatastoreTLSEngine(MySQLEngine, "ca.pem", "cert.pem", "key.pem", "mysql"))
+	require.NoError(t, ValidateDatastoreTLSEngine(PostgresEngine, "", "", "", ""))
+
+	_, err := NewDatastore(t.Context(), WithEngine(PostgresEngine), WithTLSCAPath("ca.pem"))
+	require.ErrorContains(t, err, "only supported by the mysql datastore engine, not postgres")
+
+	_, err = NewDatastore(t.Context(), WithEngine(MemoryEngine), WithTLSCertPath("cert.pem"), WithTLSKeyPath("key.pem"))
+	require.ErrorContains(t, err, "only supported by the mysql datastore engine, not memory")
+}
