@@ -78,6 +78,10 @@ func (c *Config) ToOption() ConfigOption {
 		to.SpannerMaxSessions = c.SpannerMaxSessions
 		to.SpannerDatastoreMetricsOption = c.SpannerDatastoreMetricsOption
 		to.TablePrefix = c.TablePrefix
+		to.TLSCAPath = c.TLSCAPath
+		to.TLSCertPath = c.TLSCertPath
+		to.TLSKeyPath = c.TLSKeyPath
+		to.TLSServerName = c.TLSServerName
 		to.RelationshipIntegrityEnabled = c.RelationshipIntegrityEnabled
 		to.RelationshipIntegrityCurrentKey = c.RelationshipIntegrityCurrentKey
 		to.RelationshipIntegrityExpiredKeys = c.RelationshipIntegrityExpiredKeys
@@ -277,6 +281,26 @@ func (c *Config) DebugMap() map[string]any {
 		debugMap["TablePrefix"] = "(empty)"
 	} else {
 		debugMap["TablePrefix"] = c.TablePrefix
+	}
+	if c.TLSCAPath == "" {
+		debugMap["TLSCAPath"] = "(empty)"
+	} else {
+		debugMap["TLSCAPath"] = c.TLSCAPath
+	}
+	if c.TLSCertPath == "" {
+		debugMap["TLSCertPath"] = "(empty)"
+	} else {
+		debugMap["TLSCertPath"] = c.TLSCertPath
+	}
+	if c.TLSKeyPath == "" {
+		debugMap["TLSKeyPath"] = "(empty)"
+	} else {
+		debugMap["TLSKeyPath"] = c.TLSKeyPath
+	}
+	if c.TLSServerName == "" {
+		debugMap["TLSServerName"] = "(empty)"
+	} else {
+		debugMap["TLSServerName"] = c.TLSServerName
 	}
 	debugMap["RelationshipIntegrityEnabled"] = c.RelationshipIntegrityEnabled
 	if dm, ok := any(&c.RelationshipIntegrityCurrentKey).(interface {
@@ -703,6 +727,34 @@ func WithSpannerDatastoreMetricsOption(spannerDatastoreMetricsOption string) Con
 func WithTablePrefix(tablePrefix string) ConfigOption {
 	return func(c *Config) {
 		c.TablePrefix = tablePrefix
+	}
+}
+
+// WithTLSCAPath returns an option that can set TLSCAPath on a Config
+func WithTLSCAPath(tLSCAPath string) ConfigOption {
+	return func(c *Config) {
+		c.TLSCAPath = tLSCAPath
+	}
+}
+
+// WithTLSCertPath returns an option that can set TLSCertPath on a Config
+func WithTLSCertPath(tLSCertPath string) ConfigOption {
+	return func(c *Config) {
+		c.TLSCertPath = tLSCertPath
+	}
+}
+
+// WithTLSKeyPath returns an option that can set TLSKeyPath on a Config
+func WithTLSKeyPath(tLSKeyPath string) ConfigOption {
+	return func(c *Config) {
+		c.TLSKeyPath = tLSKeyPath
+	}
+}
+
+// WithTLSServerName returns an option that can set TLSServerName on a Config
+func WithTLSServerName(tLSServerName string) ConfigOption {
+	return func(c *Config) {
+		c.TLSServerName = tLSServerName
 	}
 }
 

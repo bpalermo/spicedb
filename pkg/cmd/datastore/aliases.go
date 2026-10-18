@@ -112,6 +112,10 @@ var (
 	WithSpannerEmulatorHost                  = dsconfig.WithSpannerEmulatorHost
 	WithSpannerMaxSessions                   = dsconfig.WithSpannerMaxSessions
 	WithSpannerMinSessions                   = dsconfig.WithSpannerMinSessions
+	WithTLSCAPath                            = dsconfig.WithTLSCAPath
+	WithTLSCertPath                          = dsconfig.WithTLSCertPath
+	WithTLSKeyPath                           = dsconfig.WithTLSKeyPath
+	WithTLSServerName                        = dsconfig.WithTLSServerName
 	WithTablePrefix                          = dsconfig.WithTablePrefix
 	WithURI                                  = dsconfig.WithURI
 	WithWatchBufferLength                    = dsconfig.WithWatchBufferLength

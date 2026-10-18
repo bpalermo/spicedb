@@ -36,7 +36,18 @@ type MySQLDriver struct {
 // URI: [scheme://][user[:[password]]@]host[:port][/schema][?attribute1=value1&attribute2=value2...
 // See https://dev.mysql.com/doc/refman/8.0/en/connecting-using-uri-or-key-value-pairs.html
 func NewMySQLDriverFromDSN(url string, tablePrefix string, credentialsProvider datastore.CredentialsProvider) (*MySQLDriver, error) {
+	return NewMySQLDriverFromDSNWithTLS(url, tablePrefix, credentialsProvider, mysqlCommon.TLSOptions{})
+}
+
+// NewMySQLDriverFromDSNWithTLS is NewMySQLDriverFromDSN connecting over TLS
+// configured by tlsOptions; see mysqlCommon.MaybeConfigureTLS.
+func NewMySQLDriverFromDSNWithTLS(url string, tablePrefix string, credentialsProvider datastore.CredentialsProvider, tlsOptions mysqlCommon.TLSOptions) (*MySQLDriver, error) {
 	dbConfig, err := sqlDriver.ParseDSN(url)
+	if err != nil {
+		return nil, fmt.Errorf(errUnableToInstantiate, err)
+	}
+
+	tlsFiles, err := mysqlCommon.MaybeConfigureTLS(dbConfig, tlsOptions)
 	if err != nil {
 		return nil, fmt.Errorf(errUnableToInstantiate, err)
 	}
@@ -47,7 +58,7 @@ func NewMySQLDriverFromDSN(url string, tablePrefix string, credentialsProvider d
 	}
 
 	// Call NewConnector with the existing parsed configuration to preserve the BeforeConnect added by the CredentialsProvider
-	connector, err := sqlDriver.NewConnector(dbConfig)
+	connector, err := mysqlCommon.NewConnector(dbConfig, tlsFiles)
 	if err != nil {
 		return nil, fmt.Errorf(errUnableToInstantiate, err)
 	}

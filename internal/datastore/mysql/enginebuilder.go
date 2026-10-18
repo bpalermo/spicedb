@@ -9,6 +9,7 @@ import (
 	sqlDriver "github.com/go-sql-driver/mysql"
 
 	"github.com/authzed/spicedb/internal/datastore/common"
+	mysqlCommon "github.com/authzed/spicedb/internal/datastore/mysql/common"
 	"github.com/authzed/spicedb/internal/datastore/mysql/migrations"
 	"github.com/authzed/spicedb/internal/datastore/proxy"
 	log "github.com/authzed/spicedb/internal/logging"
@@ -33,7 +34,12 @@ func newMigrationDriverFromConfig(ctx context.Context, cfg *migration.Config) (*
 		return nil, fmt.Errorf("unable to set logging to mysql driver: %w", err)
 	}
 
-	return migrations.NewMySQLDriverFromDSN(cfg.DatastoreURI, cfg.MySQLTablePrefix, credentialsProvider)
+	return migrations.NewMySQLDriverFromDSNWithTLS(cfg.DatastoreURI, cfg.MySQLTablePrefix, credentialsProvider, mysqlCommon.TLSOptions{
+		CAPath:     cfg.TLSCAPath,
+		CertPath:   cfg.TLSCertPath,
+		KeyPath:    cfg.TLSKeyPath,
+		ServerName: cfg.TLSServerName,
+	})
 }
 
 func newDatastoreFromConfig(ctx context.Context, opts datastorecfg.Config) (datastore.Datastore, error) {
@@ -86,6 +92,12 @@ func commonDatastoreOptionsFromConfig(opts datastorecfg.Config) ([]Option, error
 		FilterMaximumIDCount(opts.FilterMaximumIDCount),
 		AllowedMigrations(opts.AllowedMigrations),
 		WithColumnOptimization(opts.ExperimentalColumnOptimization),
+		WithTLS(mysqlCommon.TLSOptions{
+			CAPath:     opts.TLSCAPath,
+			CertPath:   opts.TLSCertPath,
+			KeyPath:    opts.TLSKeyPath,
+			ServerName: opts.TLSServerName,
+		}),
 	}, nil
 }
 

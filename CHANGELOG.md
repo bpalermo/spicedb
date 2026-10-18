@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Added
+- MySQL: new `--datastore-tls-ca-path`, `--datastore-tls-cert-path`, `--datastore-tls-key-path` and `--datastore-tls-server-name` flags connect to MySQL over TLS with a custom CA bundle and a client certificate, so SpiceDB can log in as a user created with `REQUIRE SUBJECT` or `REQUIRE X509`. The connection URI's `tls` parameter can only select the built-in modes and has no way to supply either. The files are re-read when they change, so a rotated certificate (for example a SPIFFE X.509-SVID) is used by the next connection without a restart; a rotation that is only half written is ignored until it completes. The flags apply to the primary, the read replicas and `spicedb datastore migrate`. They are MySQL only for now, and are rejected for other engines rather than ignored; Postgres and CockroachDB take `sslrootcert`, `sslcert` and `sslkey` in the connection URI.
+
 ### Changed
 - Increase the timeout for datastore readiness checks to account for the possibility of far away databases (https://github.com/authzed/spicedb/pull/3305)
 

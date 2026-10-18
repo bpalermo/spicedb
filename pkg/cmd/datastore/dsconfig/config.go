@@ -150,6 +150,12 @@ type Config struct {
 	// MySQL
 	TablePrefix string `debugmap:"visible"`
 
+	// TLS (MySQL only)
+	TLSCAPath     string `debugmap:"visible"`
+	TLSCertPath   string `debugmap:"visible"`
+	TLSKeyPath    string `debugmap:"visible"`
+	TLSServerName string `debugmap:"visible"`
+
 	// Relationship Integrity
 	RelationshipIntegrityEnabled     bool            `debugmap:"visible"`
 	RelationshipIntegrityCurrentKey  RelIntegrityKey `debugmap:"visible"`
