@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -38,7 +37,9 @@ import (
 	"github.com/authzed/spicedb/pkg/genutil"
 	"github.com/authzed/spicedb/pkg/genutil/mapz"
 	"github.com/authzed/spicedb/pkg/middleware/consistency"
+	nspkg "github.com/authzed/spicedb/pkg/namespace"
 	dispatchv1 "github.com/authzed/spicedb/pkg/proto/dispatch/v1"
+	iv1 "github.com/authzed/spicedb/pkg/proto/impl/v1"
 	"github.com/authzed/spicedb/pkg/query"
 	"github.com/authzed/spicedb/pkg/schema"
 	"github.com/authzed/spicedb/pkg/tuple"
@@ -713,9 +714,25 @@ func checkFilterComponent(ctx context.Context, objectType, optionalRelation stri
 		return nil
 	}
 
-	relationToTest := cmp.Or(optionalRelation, datastore.Ellipsis)
-	allowEllipsis := optionalRelation == ""
-	return namespace.CheckNamespaceAndRelation(ctx, objectType, relationToTest, allowEllipsis, sr)
+	// When no relation is specified, the ellipsis is used, which is always valid; just
+	// ensure the referenced definition exists.
+	if optionalRelation == "" {
+		return namespace.CheckNamespaceAndRelation(ctx, objectType, datastore.Ellipsis, true, sr)
+	}
+
+	// Ensure the definition and relation exist, and that the referenced relation is an actual
+	// relation rather than a permission: relationships only ever exist on relations, so a filter
+	// referencing a permission can never match and is almost certainly a mistake.
+	_, relation, err := namespace.ReadNamespaceAndRelation(ctx, objectType, optionalRelation, sr)
+	if err != nil {
+		return err
+	}
+
+	if nspkg.GetRelationKind(relation) == iv1.RelationMetadata_PERMISSION {
+		return NewCannotFilterOnPermissionErr(objectType, optionalRelation)
+	}
+
+	return nil
 }
 
 func validateRelationshipsFilter(ctx context.Context, filter *v1.RelationshipFilter, sr datalayer.SchemaReader) error {
