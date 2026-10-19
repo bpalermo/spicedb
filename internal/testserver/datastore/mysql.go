@@ -13,6 +13,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/mysql"
 
+	"github.com/authzed/spicedb/internal/datastore/common/spiffetls"
 	"github.com/authzed/spicedb/internal/datastore/mysql/migrations"
 	"github.com/authzed/spicedb/internal/datastore/mysql/version"
 	"github.com/authzed/spicedb/pkg/datastore"
@@ -121,7 +122,7 @@ func (mb *mysqlTester) NewDatabase(t testing.TB) string {
 }
 
 func (mb *mysqlTester) runMigrate(t testing.TB, dsn string) error {
-	driver, err := migrations.NewMySQLDriverFromDSN(dsn, mb.options.Prefix, datastore.NoCredentialsProvider)
+	driver, err := migrations.NewMySQLDriverFromDSN(t.Context(), dsn, mb.options.Prefix, datastore.NoCredentialsProvider, spiffetls.Options{})
 	if err != nil {
 		return fmt.Errorf("failed to create mysql driver: %w", err)
 	}

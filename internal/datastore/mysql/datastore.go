@@ -20,6 +20,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/authzed/spicedb/internal/datastore/common"
+	"github.com/authzed/spicedb/internal/datastore/common/spiffetls"
 	mysqlCommon "github.com/authzed/spicedb/internal/datastore/mysql/common"
 	"github.com/authzed/spicedb/internal/datastore/mysql/migrations"
 	"github.com/authzed/spicedb/internal/datastore/revisions"
@@ -125,7 +126,7 @@ func NewReadOnlyMySQLDatastore(
 	return datastore.NewSeparatingContextDatastoreProxy(ds), nil
 }
 
-func newMySQLDatastore(ctx context.Context, uri string, replicaIndex int, options ...Option) (*mysqlDatastore, error) {
+func newMySQLDatastore(ctx context.Context, uri string, replicaIndex int, options ...Option) (_ *mysqlDatastore, err error) {
 	isPrimary := replicaIndex == primaryInstanceID
 	config, err := generateConfig(options)
 	if err != nil {
@@ -139,6 +140,19 @@ func newMySQLDatastore(ctx context.Context, uri string, replicaIndex int, option
 
 	if !mysqlConfig.ParseTime {
 		return nil, errors.New("error in NewMySQLDatastore: connection URI for MySQL datastore must include `parseTime=true` as a query parameter; see " + sharederrors.MySQLParseErrorLink + " for more details")
+	}
+
+	// Configure TLS before the credentials provider, which checks for it.
+	spiffeSource, err := mysqlCommon.MaybeConfigureSPIFFE(ctx, mysqlConfig, config.spiffeOptions)
+	if err != nil {
+		return nil, fmt.Errorf(errUnableToInstantiate, err)
+	}
+	if spiffeSource != nil {
+		defer func() {
+			if err != nil {
+				_ = spiffeSource.Close()
+			}
+		}()
 	}
 
 	// Setup the credentials provider
@@ -174,7 +188,7 @@ func newMySQLDatastore(ctx context.Context, uri string, replicaIndex int, option
 		}
 	}
 
-	db, collectors, err := registerAndReturnPrometheusCollectors(replicaIndex, isPrimary, connector, config.enablePrometheusStats)
+	db, collectors, err := registerAndReturnPrometheusCollectors(replicaIndex, isPrimary, connector, config.enablePrometheusStats, spiffeSource)
 	if err != nil {
 		for _, collector := range collectors {
 			_ = prometheus.Unregister(collector)
@@ -250,6 +264,7 @@ func newMySQLDatastore(ctx context.Context, uri string, replicaIndex int, option
 		db:                           db,
 		driver:                       driver,
 		collectors:                   collectors,
+		spiffeSource:                 spiffeSource,
 		url:                          uri,
 		revisionQuantization:         config.revisionQuantization,
 		gcWindow:                     config.gcWindow,
@@ -488,6 +503,7 @@ type mysqlDatastore struct {
 	url                string
 	analyzeBeforeStats bool
 	collectors         []prometheus.Collector
+	spiffeSource       *spiffetls.Source
 
 	revisionQuantization         time.Duration
 	gcWindow                     time.Duration
@@ -529,7 +545,11 @@ func (mds *mysqlDatastore) Close() error {
 	for _, collector := range mds.collectors {
 		_ = prometheus.Unregister(collector)
 	}
-	return mds.db.Close()
+	err := mds.db.Close()
+	if mds.spiffeSource != nil {
+		err = errors.Join(err, mds.spiffeSource.Close())
+	}
+	return err
 }
 
 // ReadyState returns whether the datastore is ready to accept data. Datastores that require
@@ -694,7 +714,7 @@ func (debugLogger) Print(v ...any) {
 	log.Logger.Debug().CallerSkipFrame(1).Str("datastore", "mysql").Msg(fmt.Sprint(v...))
 }
 
-func registerAndReturnPrometheusCollectors(replicaIndex int, isPrimary bool, connector driver.Connector, enablePrometheusStats bool) (*sql.DB, []prometheus.Collector, error) {
+func registerAndReturnPrometheusCollectors(replicaIndex int, isPrimary bool, connector driver.Connector, enablePrometheusStats bool, spiffeSource *spiffetls.Source) (*sql.DB, []prometheus.Collector, error) {
 	if !enablePrometheusStats {
 		return sql.OpenDB(connector), nil, nil
 	}
@@ -715,6 +735,15 @@ func registerAndReturnPrometheusCollectors(replicaIndex int, isPrimary bool, con
 		return nil, collectors, err
 	}
 	collectors = append(collectors, collector)
+
+	if spiffeSource != nil {
+		for _, collector := range spiffeSource.Collectors(dbName) {
+			if err := prometheus.Register(collector); err != nil {
+				return nil, collectors, err
+			}
+			collectors = append(collectors, collector)
+		}
+	}
 
 	if isPrimary {
 		gcMetrics, err := datastore.RegisterGCMetrics()
